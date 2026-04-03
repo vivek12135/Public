@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="theme-color" content="#00d4ff"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="StreamBox"/>
+<title>StreamBox</title>
+<link rel="manifest" href="manifest.json"/>
+
+<!-- PWA Icon fallback (canvas generated) -->
+<style>
+:root {
+  --bg:#0d0f14; --bg2:#141720; --bg3:#1c2030;
+  --accent:#00d4ff; --accent2:#ff6b35;
+  --text:#e8eaf0; --text2:#8890a8;
+  --green:#00e676; --red:#ff5252;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;overflow:hidden;}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px}
+
+/* ── SPLASH SCREEN ── */
+#splash{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#0d0f14,#0d1a2e,#1a0535);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .5s;
+}
+#splash.hide{opacity:0;pointer-events:none;}
+#splash-logo{font-size:52px;font-weight:900;letter-spacing:3px;color:var(--accent);text-shadow:0 0 40px #00d4ff66;}
+#splash-logo span{color:var(--accent2);}
+#splash-tagline{color:var(--text2);font-size:14px;margin-top:8px;letter-spacing:2px;}
+#splash-loader{width:120px;height:3px;background:#1c2030;border-radius:3px;margin-top:40px;overflow:hidden;}
+#splash-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;animation:load 1.8s ease forwards;}
+@keyframes load{from{width:0}to{width:100%}}
+
+/* ── INSTALL BANNER ── */
+#install-banner{
+  position:fixed;bottom:calc(60px + var(--safe-bottom));left:12px;right:12px;z-index:400;
+  background:linear-gradient(135deg,#141720,#1c2030);
+  border:1px solid var(--accent);border-radius:16px;
+  padding:14px 16px;display:none;align-items:center;gap:12px;
+  box-shadow:0 4px 24px rgba(0,212,255,0.2);
+  animation:slideUp .4s ease;
+}
+#install-banner.show{display:flex;}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.ib-icon{font-size:32px;flex-shrink:0;}
+.ib-text{flex:1;}
+.ib-title{font-weight:800;font-size:14px;}
+.ib-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.ib-btn{background:var(--accent);color:#000;border:none;border-radius:20px;padding:8px 16px;font-weight:800;font-size:12px;cursor:pointer;flex-shrink:0;}
+.ib-close{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;flex-shrink:0;padding:4px;}
+
+/* ── TOP NAV ── */
+#nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;gap:10px;
+  padding:calc(var(--safe-top) + 10px) 14px 10px;
+  background:linear-gradient(180deg,rgba(13,15,20,0.98) 80%,transparent);
+  backdrop-filter:blur(10px);
+}
+.logo{font-size:24px;font-weight:900;letter-spacing:2px;color:var(--accent);flex-shrink:0;}
+.logo span{color:var(--accent2);}
+#search-wrap{flex:1;position:relative;}
+#search-wrap input{
+  width:100%;padding:8px 12px 8px 34px;
+  background:var(--bg3);border:1px solid #252a3a;
+  border-radius:20px;color:var(--text);font-size:13px;outline:none;
+  transition:border .2s;
+}
+#search-wrap input:focus{border-color:var(--accent);}
+#search-wrap .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text2);}
+#notif-btn{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;flex-shrink:0;position:relative;}
+.notif-dot{position:absolute;top:2px;right:2px;width:7px;height:7px;background:var(--red);border-radius:50%;}
+
+/* ── TABS ── */
+#tabs{
+  position:fixed;top:54px;left:0;right:0;z-index:190;
+  display:flex;gap:6px;padding:8px 14px;
+  overflow-x:auto;background:rgba(13,15,20,0.96);
+  scrollbar-width:none;border-bottom:1px solid #1a1f2e;
+}
+#tabs::-webkit-scrollbar{display:none;}
+.tab{
+  flex-shrink:0;padding:6px 14px;border-radius:16px;
+  border:1px solid #252a3a;background:transparent;
+  color:var(--text2);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#000;}
+
+/* ── MAIN ── */
+#main{
+  height:100vh;overflow-y:auto;overflow-x:hidden;
+  padding-top:100px;padding-bottom:calc(65px + var(--safe-bottom));
+  scroll-behavior:smooth;
+}
+
+/* ── HERO ── */
+#hero{
+  position:relative;height:240px;margin-bottom:20px;overflow:hidden;
+}
+#hero-canvas{position:absolute;inset:0;width:100%;height:100%;}
+#hero-grad{position:absolute;inset:0;background:linear-gradient(0deg,var(--bg) 0%,rgba(13,15,20,0.3) 60%);}
+#hero-info{position:relative;z-index:2;padding:16px;position:absolute;bottom:0;left:0;right:0;}
+.hero-badge{display:inline-block;background:var(--accent2);color:#fff;font-size:9px;font-weight:800;padding:3px 8px;border-radius:4px;margin-bottom:5px;letter-spacing:1px;}
+#hero-title{font-size:26px;font-weight:900;line-height:1.1;margin-bottom:4px;text-shadow:0 2px 8px rgba(0,0,0,0.8);}
+#hero-meta{font-size:11px;color:rgba(255,255,255,0.7);margin-bottom:10px;}
+.hero-btns{display:flex;gap:8px;}
+.hero-play{display:inline-flex;align-items:center;gap:5px;background:var(--accent);color:#000;font-weight:800;padding:9px 20px;border-radius:20px;border:none;cursor:pointer;font-size:13px;}
+.hero-list{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,0.15);color:#fff;font-weight:700;padding:9px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;font-size:13px;backdrop-filter:blur(4px);}
+
+/* ── SECTIONS ── */
+.section{margin-bottom:24px;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:0 14px 8px;}
+.sec-title{font-size:17px;font-weight:900;letter-spacing:.5px;}
+.sec-more{font-size:12px;color:var(--accent);font-weight:700;cursor:pointer;}
+
+/* ── CARDS ROW ── */
+.cards-row{display:flex;gap:10px;padding:0 14px;overflow-x:auto;scrollbar-width:none;}
+.cards-row::-webkit-scrollbar{display:none;}
+
+/* ── CARD ── */
+.card{flex-shrink:0;width:120px;cursor:pointer;border-radius:10px;overflow:hidden;background:var(--bg2);transition:transform .15s;position:relative;}
+.card:active{transform:scale(0.95);}
+.card-thumb{width:120px;height:170px;object-fit:cover;display:block;}
+.card-thumb-cv{width:120px;height:170px;display:block;}
+.card-badge{position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.8);color:var(--accent);font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;border:1px solid var(--accent);}
+.card-info{padding:6px 7px 8px;}
+.card-name{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-sub{font-size:9px;color:var(--text2);margin-top:1px;}
+.card-rating{font-size:9px;color:#f5c842;margin-top:1px;}
+
+/* ── GRID ── */
+.cards-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px;}
+.cards-grid .card{width:100%;}
+.cards-grid .card-thumb-cv{width:100%;height:155px;}
+.cards-grid .card-thumb{width:100%;height:155px;}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:50px 20px;color:var(--text2);}
+.empty .ei{font-size:52px;margin-bottom:12px;}
+.empty p{font-size:14px;line-height:1.6;}
+.empty-btn{margin-top:16px;display:inline-block;background:var(--accent);color:#000;font-weight:800;padding:10px 24px;border-radius:20px;cursor:pointer;font-size:13px;}
+
+/* ── UPLOAD MODAL ── */
+#upload-modal{
+  position:fixed;inset:0;z-index:500;display:none;
+  background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);
+  align-items:flex-end;
+}
+#upload-modal.open{display:flex;}
+#upload-sheet{
+  background:var(--bg2);border-radius:22px 22px 0 0;
+  width:100%;padding:16px 18px calc(20px + var(--safe-bottom));
+  max-height:92vh;overflow-y:auto;
+  animation:sheetUp .3s ease;
+}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.s-handle{width:36px;height:4px;background:#2a2f40;border-radius:2px;margin:0 auto 16px;}
+.s-title{font-size:20px;font-weight:900;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.fg{margin-bottom:12px;}
+.fg label{display:block;font-size:11px;font-weight:800;color:var(--text2);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase;}
+.fg input,.fg select,.fg textarea{
+  width:100%;padding:10px 13px;background:var(--bg3);
+  border:1px solid #252a3a;border-radius:10px;
+  color:var(--text);font-size:13px;outline:none;transition:border .2s;
+}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent);}
+.fg select option{background:var(--bg3);}
+.fg textarea{resize:vertical;min-height:65px;}
+.row2{display:flex;gap:10px;}
+.row2 .fg{flex:1;}
+
+.dz{
+  border:2px dashed #252a3a;border-radius:12px;
+  padding:20px;text-align:center;cursor:pointer;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.dz:active,.dz.drag{border-color:var(--accent);background:rgba(0,212,255,0.05);}
+.dz input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.dz-icon{font-size:28px;margin-bottom:6px;}
+.dz p{font-size:12px;color:var(--text2);}
+.dz-name{font-size:12px;color:var(--accent);font-weight:700;margin-top:4px;display:none;word-break:break-all;}
+.thumb-prev{width:100%;height:130px;object-fit:cover;border-radius:10px;margin-top:8px;display:none;}
+
+.submit-btn{
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,var(--accent),#0099bb);
+  border:none;border-radius:12px;color:#000;
+  font-weight:900;font-size:15px;cursor:pointer;margin-top:8px;
+  letter-spacing:.5px;
+}
+.submit-btn:active{opacity:0.85;}
+.cancel-btn2{
+  width:100%;padding:12px;background:transparent;
+  border:1px solid #252a3a;border-radius:12px;
+  color:var(--text2);font-size:14px;cursor:pointer;margin-top:8px;
+}
+
+/* ── PLAYER ── */
+#player-modal{
+  position:fixed;inset:0;z-index:600;display:none;
+  background:#000;flex-direction:column;
+}
+#player-modal.open{display:flex;}
+#ptop{
+  display:flex;align-items:center;gap:10px;
+  padding:calc(var(--safe-top)+10px) 14px 10px;
+  background:linear-gradient(180deg,rgba(0,0,0,0.9),transparent);
+  position:absolute;top:0;left:0;right:0;z-index:10;
+}
+#pback{background:none;border:none;color:#fff;font-size:26px;cursor:pointer;line-height:1;}
+#ptitle{font-weight:800;font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#pvideo{width:100%;height:100%;object-fit:contain;background:#000;}
+#pinfo{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:16px 16px calc(16px + var(--safe-bottom));
+  background:linear-gradient(0deg,rgba(0,0,0,0.95) 0%,transparent 100%);
+}
+#pinfo-title{font-weight:900;font-size:16px;}
+#pinfo-desc{font-size:12px;color:var(--text2);margin-top:3px;}
+.ep-row{display:flex;gap:6px;overflow-x:auto;margin-top:10px;scrollbar-width:none;}
+.ep-row::-webkit-scrollbar{display:none;}
+.ep-btn{
+  flex-shrink:0;padding:6px 14px;border-radius:14px;
+  border:1px solid #333;background:var(--bg3);
+  color:var(--text);font-size:11px;font-weight:700;cursor:pointer;
+}
+.ep-btn.active{background:var(--accent);border-color:var(--accent);color:#000;}
+
+/* ── BOTTOM NAV ── */
+#bnav{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  display:flex;background:rgba(13,15,20,0.97);
+  border-top:1px solid #1a1f2e;backdrop-filter:blur(12px);
+  padding-bottom:var(--safe-bottom);
+}
+.nb{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  padding:8px 4px;cursor:pointer;gap:2px;
+  background:none;border:none;color:var(--text2);
+  font-size:9px;font-weight:800;transition:color .2s;letter-spacing:.3px;
+}
+.nb.active{color:var(--accent);}
+.nb .bi{font-size:21px;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:calc(70px + var(--safe-bottom));left:50%;
+  transform:translateX(-50%) translateY(10px);
+  background:var(--bg3);border:1px solid var(--accent);
+  color:var(--text);padding:10px 18px;border-radius:20px;
+  font-size:12px;font-weight:700;z-index:999;
+  opacity:0;transition:all .3s;white-space:nowrap;pointer-events:none;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── PROFILE PAGE ── */
+#profile-page{display:none;padding:20px 14px;}
+#profile-page.show{display:block;}
+.profile-card{background:var(--bg2);border-radius:16px;padding:20px;margin-bottom:16px;border:1px solid #1c2030;}
+.profile-avatar{width:72px;height:72px;border-radius:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px;}
+.profile-name{text-align:center;font-size:18px;font-weight:900;}
+.profile-sub{text-align:center;font-size:12px;color:var(--text2);margin-top:3px;}
+.stat-row{display:flex;gap:10px;margin-top:16px;}
+.stat-box{flex:1;background:var(--bg3);border-radius:12px;padding:12px;text-align:center;}
+.stat-num{font-size:22px;font-weight:900;color:var(--accent);}
+.stat-label{font-size:10px;color:var(--text2);margin-top:2px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #1c2030;cursor:pointer;}
+.setting-row:last-child{border:none;}
+.sr-left{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;}
+.sr-right{color:var(--text2);font-size:18px;}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div id="splash-logo">Stream<span>Box</span></div>
+  <div id="splash-tagline">YOUR PERSONAL CINEMA</div>
+  <div id="splash-loader"><div id="splash-bar"></div></div>
+</div>
+
+<!-- INSTALL BANNER -->
+<div id="install-banner">
+  <div class="ib-icon">📲</div>
+  <div class="ib-text">
+    <div class="ib-title">Install StreamBox</div>
+    <div class="ib-sub">Add to home screen for app experience</div>
+  </div>
+  <button class="ib-btn" id="install-btn">Install</button>
+  <button class="ib-close" onclick="hideInstall()">✕</button>
+</div>
+
+<!-- TOP NAV -->
+<div id="nav">
+  <div class="logo">Stream<span>Box</span></div>
+  <div id="search-wrap">
+    <span class="si">🔍</span>
+    <input type="text" id="search-input" placeholder="Search..." oninput="onSearch()"/>
+  </div>
+  <button id="notif-btn" onclick="showToast('No new notifications')">🔔<span class="notif-dot"></span></button>
+</div>
+
+<!-- TABS -->
+<div id="tabs">
+  <button class="tab active" onclick="setTab('All',this)">✨ All</button>
+  <button class="tab" onclick="setTab('Movie',this)">🎬 Movies</button>
+  <button class="tab" onclick="setTab('Anime',this)">⛩ Anime</button>
+  <button class="tab" onclick="setTab('Series',this)">📺 Series</button>
+  <button class="tab" onclick="setTab('Hindi',this)">🇮🇳 Hindi</button>
+  <button class="tab" onclick="setTab('Action',this)">💥 Action</button>
+  <button class="tab" onclick="setTab('Romance',this)">💕 Romance</button>
+  <button class="tab" onclick="setTab('Comedy',this)">😂 Comedy</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="hero">
+    <canvas id="hero-canvas"></canvas>
+    <div id="hero-grad"></div>
+    <div id="hero-info">
+      <div class="hero-badge">✦ FEATURED</div>
+      <div id="hero-title">Welcome to StreamBox</div>
+      <div id="hero-meta">Upload your content to get started</div>
+      <div class="hero-btns">
+        <button class="hero-play" onclick="playHero()">▶ Play</button>
+        <button class="hero-list" onclick="addHeroToList()">+ My List</button>
+      </div>
+    </div>
+  </div>
+  <div id="content-area"></div>
+  <div id="profile-page"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="bnav">
+  <button class="nb active" onclick="setPage('home',this)"><span class="bi">🏠</span>Home</button>
+  <button class="nb" onclick="setPage('browse',this)"><span class="bi">🔍</span>Browse</button>
+  <button class="nb" onclick="openUpload()"><span class="bi">⬆️</span>Upload</button>
+  <button class="nb" onclick="setPage('mylist',this)"><span class="bi">📋</span>My List</button>
+  <button class="nb" onclick="setPage('profile',this)"><span class="bi">👤</span>Profile</button>
+</div>
+
+<!-- UPLOAD SHEET -->
+<div id="upload-modal" onclick="closeUploadOut(event)">
+<div id="upload-sheet">
+  <div class="s-handle"></div>
+  <div class="s-title">⬆️ Upload Content</div>
+
+  <div class="fg"><label>Title *</label>
+    <input type="text" id="u-title" placeholder="e.g. Attack on Titan"/>
+  </div>
+  <div class="row2">
+    <div class="fg"><label>Category *</label>
+      <select id="u-cat">
+        <option>Movie</option><option>Anime</option><option>Series</option>
+      </select>
+    </div>
+    <div class="fg"><label>Language</label>
+      <select id="u-lang">
+        <option>Hindi</option><option>English</option><option>Japanese</option>
+        <option>Korean</option><option>Tamil</option><option>Telugu</option>
+      </select>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="fg"><label>Genre</label>
+      <input type="text" id="u-genre" placeholder="Action, Romance..."/>
+    </div>
+    <div class="fg"><label>Year</label>
+      <input type="number" id="u-year" placeholder="2024"/>
+    </div>
+  </div>
+  <div class="fg"><label>Description</label>
+    <textarea id="u-desc" placeholder="Short description..."></textarea>
+  </div>
+  <div class="fg"><label>Thumbnail Image</label>
+    <div class="dz" id="thumb-dz">
+      <input type="file" accept="image/*" onchange="loadThumb(this)"/>
+      <div class="dz-icon">🖼️</div>
+      <p>Tap to select thumbnail</p>
+      <div class="dz-name" id="tname"></div>
+    </div>
+    <img id="tprev" class="thumb-prev"/>
+  </div>
+  <div class="fg"><label>Video File *</label>
+    <div class="dz" id="video-dz">
+      <input type="file" accept="video/*" onchange="loadVideo(this)"/>
+      <div class="dz-icon">🎬</div>
+      <p>Tap to select video (MP4, MKV...)</p>
+      <div class="dz-name" id="vname"></div>
+    </div>
+  </div>
+  <div class="fg"><label>Episode No. (Series/Anime only)</label>
+    <input type="number" id="u-ep" placeholder="e.g. 1 (leave blank for movie)"/>
+  </div>
+
+  <button class="submit-btn" onclick="submitUpload()">✅ Add to Library</button>
+  <button class="cancel-btn2" onclick="closeUpload()">Cancel</button>
+</div>
+</div>
+
+<!-- PLAYER -->
+<div id="player-modal">
+  <div id="ptop">
+    <button id="pback" onclick="closePlayer()">‹</button>
+    <div id="ptitle"></div>
+    <span id="plang" style="font-size:10px;background:#1c2030;padding:3px 8px;border-radius:10px;color:var(--accent)"></span>
+  </div>
+  <video id="pvideo" controls autoplay playsinline webkit-playsinline></video>
+  <div id="pinfo">
+    <div id="pinfo-title"></div>
+    <div id="pinfo-desc"></div>
+    <div class="ep-row" id="ep-row"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+let library = JSON.parse(localStorage.getItem('sb_lib')||'[]');
+let currentTab='All', currentPage='home', searchQ='', heroItem=null;
+let pendingThumb=null, pendingVideoUrl=null;
+let deferredInstall=null, myList=JSON.parse(localStorage.getItem('sb_mylist')||'[]');
+
+// ── PALETTE ───────────────────────────────────────────────────────────────────
+const PAL=[['#1a0535','#6a0dad'],['#0d2137','#0099cc'],['#1a0010','#cc0055'],
+  ['#0d1a0d','#00aa44'],['#1a1000','#cc8800'],['#0d0d2e','#4444ff'],
+  ['#1a0a00','#ff6622'],['#00101a','#00cccc'],['#1a1518','#aa2266']];
+
+function drawPH(cv,title,idx){
+  const [c1,c2]=PAL[idx%PAL.length];
+  const ctx=cv.getContext('2d');
+  const g=ctx.createLinearGradient(0,0,cv.width,cv.height);
+  g.addColorStop(0,c1);g.addColorStop(1,c2);
+  ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  for(let y=0;y<cv.height;y+=18) for(let x=0;x<cv.width;x+=18){
+    ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill();
+  }
+  const fs=Math.min(13,85/Math.max(title.length,1)+7);
+  ctx.font=`bold ${fs}px 'Segoe UI',sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.92)';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const words=title.split(' '),lines=[],maxW=cv.width-14;
+  let line='';
+  words.forEach(w=>{const t=line?line+' '+w:w;
+    if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;
+  });lines.push(line);
+  const lh=17,start=cv.height/2-(lines.length-1)*lh/2;
+  lines.forEach((l,i)=>ctx.fillText(l,cv.width/2,start+i*lh));
+}
+
+// ── HERO ──────────────────────────────────────────────────────────────────────
+function updateHero(){
+  const cv=document.getElementById('hero-canvas');
+  cv.width=cv.offsetWidth||window.innerWidth;cv.height=240;
+  if(library.length===0){
+    heroItem=null;
+    const ctx=cv.getContext('2d');
+    const g=ctx.createLinearGradient(0,0,cv.width,240);
+    g.addColorStop(0,'#0d1a2e');g.addColorStop(1,'#1a0535');
+    ctx.fillStyle=g;ctx.fillRect(0,0,cv.width,240);
+    return;
+  }
+  heroItem=library[library.length-1];
+  document.getElementById('hero-title').textContent=heroItem.title;
+  document.getElementById('hero-meta').textContent=
+    [heroItem.year,heroItem.lang,heroItem.cat,heroItem.genre].filter(Boolean).join(' • ');
+  if(heroItem.thumb){
+    const img=new Image();img.src=heroItem.thumb;
+    img.onload=()=>{
+      const ctx=cv.getContext('2d');
+      const scale=Math.max(cv.width/img.width,240/img.height);
+      const w=img.width*scale,h=img.height*scale;
+      ctx.drawImage(img,(cv.width-w)/2,(240-h)/2,w,h);
+    };
+  } else {
+    drawPH(cv,heroItem.title,library.length-1);
+  }
+}
+
+// ── CARD HTML ─────────────────────────────────────────────────────────────────
+function cardHTML(item,idx,grid=false){
+  const w=grid?'100%':'120px',ch=grid?'155px':'170px';
+  return `<div class="card" data-id="${item.id}" onclick="openPlayer('${item.id}')">
+    <div style="position:relative">
+      ${item.thumb
+        ?`<img class="card-thumb" src="${item.thumb}" style="width:${w};height:${ch}" loading="lazy"/>`
+        :`<canvas id="c${item.id}" class="card-thumb-cv" style="width:${w};height:${ch}"></canvas>`
+      }
+      <div class="card-badge">${item.lang||item.cat}</div>
+    </div>
+    <div class="card-info">
+      <div class="card-name">${item.title}</div>
+      <div class="card-sub">${item.year||''} ${item.genre||''}</div>
+      <div class="card-rating">⭐ ${item.rating||'New'}</div>
+    </div>
+  </div>`;
+}
+
+function drawAllPH(items){
+  items.forEach((item,i)=>{
+    if(!item.thumb){
+      const cv=document.getElementById('c'+item.id);
+      if(cv){cv.width=cv.offsetWidth||120;cv.height=cv.offsetHeight||170;drawPH(cv,item.title,library.indexOf(item));}
+    }
+  });
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render(){
+  updateHero();
+  const area=document.getElementById('content-area');
+  const prof=document.getElementById('profile-page');
+  area.style.display='block';prof.className='';
+
+  if(currentPage==='profile'){
+    area.style.display='none';
+    renderProfile(prof);return;
+  }
+
+  let items=filterItems(library);
+
+  if(searchQ){area.innerHTML=renderGrid(items,'🔍 Search Results');setTimeout(()=>drawAllPH(items),0);return;}
+  if(currentPage==='mylist'){
+    const ml=library.filter(x=>myList.includes(x.id));
+    area.innerHTML=renderGrid(ml,'📋 My List');setTimeout(()=>drawAllPH(ml),0);return;
+  }
+  if(currentPage==='browse'){area.innerHTML=renderGrid(items,'🎬 Browse All');setTimeout(()=>drawAllPH(items),0);return;}
+
+  // Home
+  let html='',any=false;
+  ['Movie','Anime','Series'].forEach(cat=>{
+    const ci=items.filter(x=>x.cat===cat);
+    if(!ci.length)return;
+    any=true;
+    html+=`<div class="section">
+      <div class="sec-hdr">
+        <div class="sec-title">${catLbl(cat)}</div>
+        <div class="sec-more" onclick="showAll('${cat}')">See All ›</div>
+      </div>
+      <div class="cards-row">${ci.map((x,i)=>cardHTML(x,i)).join('')}</div>
+    </div>`;
+  });
+  if(!any) html=`<div class="empty">
+    <div class="ei">🎬</div>
+    <p>No content yet!<br>Upload your first video below.</p>
+    <div class="empty-btn" onclick="openUpload()">⬆ Upload Now</div>
+  </div>`;
+  area.innerHTML=html;
+  setTimeout(()=>drawAllPH(items),0);
+}
+
+function catLbl(c){return c==='Movie'?'🎬 Movies':c==='Anime'?'⛩ Anime':'📺 Series';}
+
+function filterItems(arr){
+  return arr.filter(x=>{
+    const mt=currentTab==='All'||x.cat===currentTab||x.genre?.includes(currentTab)||x.lang===currentTab;
+    const mq=!searchQ||x.title.toLowerCase().includes(searchQ.toLowerCase());
+    return mt&&mq;
+  });
+}
+
+function renderGrid(items,title){
+  if(!items.length) return `<div class="empty"><div class="ei">📭</div><p>Nothing found.</p></div>`;
+  return `<div class="section">
+    <div class="sec-hdr"><div class="sec-title">${title}</div><div style="color:var(--text2);font-size:11px">${items.length} titles</div></div>
+    <div class="cards-grid">${items.map((x,i)=>cardHTML(x,i,true)).join('')}</div>
+  </div>`;
+}
+
+function renderProfile(el){
+  el.className='show';
+  el.innerHTML=`<div class="profile-card">
+    <div class="profile-avatar">🎬</div>
+    <div class="profile-name">My StreamBox</div>
+    <div class="profile-sub">Personal Cinema</div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num">${library.length}</div><div class="stat-label">Videos</div></div>
+      <div class="stat-box"><div class="stat-num">${myList.length}</div><div class="stat-label">My List</div></div>
+      <div class="stat-box"><div class="stat-num">${[...new Set(library.map(x=>x.cat))].length}</div><div class="stat-label">Categories</div></div>
+    </div>
+  </div>
+  <div class="profile-card">
+    <div class="setting-row" onclick="openUpload()"><div class="sr-left">⬆️ Upload Content</div><div class="sr-right">›</div></div>
+    <div class="setting-row" onclick="clearLib()"><div class="sr-left">🗑️ Clear Library</div><div class="sr-right">›</div></div>
+    <div class="setting-row" onclick="showInstall()"><div class="sr-left">📲 Install App</div><div class="sr-right">›</div></div>
+    <div class="setting-row"><div class="sr-left">ℹ️ StreamBox v1.0</div><div class="sr-right" style="font-size:12px;color:var(--accent)">PWA</div></div>
+  </div>`;
+}
+
+// ── PLAYER ────────────────────────────────────────────────────────────────────
+function openPlayer(id){
+  const item=library.find(x=>x.id===id);
+  if(!item||!item.videoUrl){showToast('⚠️ Video not available (re-upload)');return;}
+  document.getElementById('player-modal').classList.add('open');
+  document.getElementById('pvideo').src=item.videoUrl;
+  document.getElementById('ptitle').textContent=item.title;
+  document.getElementById('plang').textContent=item.lang||'';
+  document.getElementById('pinfo-title').textContent=item.title;
+  document.getElementById('pinfo-desc').textContent=item.desc||'';
+  const eps=library.filter(x=>x.title===item.title&&x.cat===item.cat);
+  const er=document.getElementById('ep-row');
+  er.innerHTML=eps.length>1?eps.map((e,i)=>`<button class="ep-btn${e.id===id?' active':''}" onclick="switchEp('${e.id}',this)">EP ${e.ep||i+1}</button>`).join(''):'';
+}
+function switchEp(id,btn){
+  document.querySelectorAll('.ep-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const item=library.find(x=>x.id===id);
+  if(item)document.getElementById('pvideo').src=item.videoUrl;
+}
+function closePlayer(){
+  document.getElementById('player-modal').classList.remove('open');
+  document.getElementById('pvideo').src='';
+}
+function playHero(){if(heroItem)openPlayer(heroItem.id);else openUpload();}
+function addHeroToList(){
+  if(!heroItem){openUpload();return;}
+  if(!myList.includes(heroItem.id)){myList.push(heroItem.id);localStorage.setItem('sb_mylist',JSON.stringify(myList));showToast('✅ Added to My List');}
+  else showToast('Already in My List');
+}
+
+// ── UPLOAD ────────────────────────────────────────────────────────────────────
+function openUpload(){document.getElementById('upload-modal').classList.add('open');}
+function closeUpload(){document.getElementById('upload-modal').classList.remove('open');}
+function closeUploadOut(e){if(e.target===document.getElementById('upload-modal'))closeUpload();}
+
+function loadThumb(inp){
+  const f=inp.files[0];if(!f)return;
+  document.getElementById('tname').textContent=f.name;document.getElementById('tname').style.display='block';
+  const r=new FileReader();
+  r.onload=e=>{pendingThumb=e.target.result;const p=document.getElementById('tprev');p.src=e.target.result;p.style.display='block';};
+  r.readAsDataURL(f);
+}
+function loadVideo(inp){
+  const f=inp.files[0];if(!f)return;
+  document.getElementById('vname').textContent=f.name;document.getElementById('vname').style.display='block';
+  pendingVideoUrl=URL.createObjectURL(f);
+}
+
+function submitUpload(){
+  const title=document.getElementById('u-title').value.trim();
+  if(!title){showToast('⚠️ Enter a title!');return;}
+  if(!pendingVideoUrl){showToast('⚠️ Select a video file!');return;}
+  const item={
+    id:Date.now().toString(),
+    title,cat:document.getElementById('u-cat').value,
+    lang:document.getElementById('u-lang').value,
+    genre:document.getElementById('u-genre').value,
+    year:document.getElementById('u-year').value,
+    desc:document.getElementById('u-desc').value,
+    thumb:pendingThumb||null,
+    videoUrl:pendingVideoUrl,
+    ep:document.getElementById('u-ep').value||null,
+    rating:'New',added:Date.now(),
+  };
+  library.push(item);
+  try{localStorage.setItem('sb_lib',JSON.stringify(library.map(x=>({...x,videoUrl:null}))));}catch(e){}
+  // reset
+  ['u-title','u-genre','u-year','u-desc','u-ep'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('tprev').style.display='none';
+  document.getElementById('tname').style.display='none';
+  document.getElementById('vname').style.display='none';
+  pendingThumb=null;pendingVideoUrl=null;
+  closeUpload();render();showToast('🎬 '+title+' added!');
+}
+
+function clearLib(){
+  if(!confirm('Clear all library? This cannot be undone.'))return;
+  library=[];myList=[];
+  localStorage.removeItem('sb_lib');localStorage.removeItem('sb_mylist');
+  render();showToast('🗑️ Library cleared');
+}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function setTab(cat,el){
+  currentTab=cat;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');render();
+}
+function setPage(page,el){
+  currentPage=page;searchQ='';
+  document.getElementById('search-input').value='';
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');render();
+}
+function onSearch(){searchQ=document.getElementById('search-input').value.trim();render();}
+function showAll(cat){
+  currentPage='browse';currentTab=cat;
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nb')[1].classList.add('active');
+  render();
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastT=null;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ── PWA INSTALL ───────────────────────────────────────────────────────────────
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredInstall=e;
+  setTimeout(()=>document.getElementById('install-banner').classList.add('show'),3000);
+});
+document.getElementById('install-btn').onclick=async()=>{
+  if(!deferredInstall){showToast('📲 Open in Chrome & use "Add to Home Screen"');return;}
+  deferredInstall.prompt();
+  const{outcome}=await deferredInstall.userChoice;
+  if(outcome==='accepted')showToast('✅ StreamBox installed!');
+  hideInstall();
+};
+function hideInstall(){document.getElementById('install-banner').classList.remove('show');}
+function showInstall(){document.getElementById('install-banner').classList.add('show');}
+window.addEventListener('appinstalled',()=>{hideInstall();showToast('✅ App installed successfully!');});
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// ── SPLASH → INIT ─────────────────────────────────────────────────────────────
+setTimeout(()=>{
+  document.getElementById('splash').classList.add('hide');
+  setTimeout(()=>document.getElementById('splash').remove(),600);
+  render();
+},2000);
+</script>
+</body>
+</html>
